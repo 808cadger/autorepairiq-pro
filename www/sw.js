@@ -1,11 +1,12 @@
 // sw.js — AutoRepairIQ Pro Service Worker
 // Aloha from Pearl City! 🌺
 
-const CACHE_NAME = 'ariq-v1';
+const CACHE_NAME = 'ariq-v5';
 const ASSETS = [
   './',
   './index.html',
   './app.js',
+  './share.js',
   './api-client.js',
   './avatar-widget.js',
   './manifest.json',

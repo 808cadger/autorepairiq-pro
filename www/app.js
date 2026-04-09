@@ -310,21 +310,71 @@ function scanFromGarage(vIdx) {
 // ═══════════════════════════════════════
 //  SCAN (Photo Pipeline)
 // ═══════════════════════════════════════
-function scanTapPhoto(slot) {
+// #ASSUMPTION: @capacitor/camera is available when running in Capacitor wrapper
+async function scanTapPhoto(slot) {
   if (scanPhotos[slot]) { scanClearPhoto(slot); return; }
-  if (navigator.mediaDevices?.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false
-    }).then(stream => {
-      scanStreams[slot] = stream;
-      const vid = document.getElementById('photoVideo' + slot);
-      vid.srcObject = stream; vid.style.display = 'block';
-      document.getElementById('camCapture' + slot).style.display = 'block';
-      document.getElementById('photoPlaceholder' + slot).style.display = 'none';
-    }).catch(() => document.getElementById('photoFile' + slot).click());
+  await _openNativeCamera(slot);
+}
+
+// Open rear camera via Capacitor Camera plugin (native Android camera app)
+// Falls back to file picker on web/PWA
+async function _openNativeCamera(slot) {
+  if (window.Capacitor?.isNativePlatform()) {
+    await _capCamera(slot, 'CAMERA');
   } else {
+    // PWA fallback — getUserMedia with rear cam preference
+    _openWebCamera(slot);
+  }
+}
+
+async function _capCamera(slot, source) {
+  try {
+    const { Camera, CameraResultType, CameraSource, CameraDirection } = await import(
+      'https://unpkg.com/@capacitor/camera/dist/esm/index.js'
+    ).catch(() => window.CapacitorCamera || {});
+
+    // Use Capacitor.Plugins which is injected by the native bridge
+    const CamPlugin = window.Capacitor?.Plugins?.Camera;
+    if (!CamPlugin) { _openWebCamera(slot); return; }
+
+    const result = await CamPlugin.getPhoto({
+      quality: 90,
+      allowEditing: false,
+      resultType: 'base64',          // get base64 directly
+      source: source,                // 'CAMERA' or 'PHOTOS'
+      direction: 'REAR',             // force rear camera
+      presentationStyle: 'fullscreen',
+      saveToGallery: false,
+    });
+
+    if (result?.base64String) {
+      const dataUrl = 'data:image/jpeg;base64,' + result.base64String;
+      setScanPhoto(slot, dataUrl);
+    }
+  } catch (e) {
+    if (e?.message?.includes('cancelled') || e?.message?.includes('cancel')) return;
+    // Permission denied or other error — fall back to file picker
     document.getElementById('photoFile' + slot).click();
   }
+}
+
+function _openWebCamera(slot) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    document.getElementById('photoFile' + slot).click();
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 } }, audio: false,
+  }).catch(() =>
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+  ).then(stream => {
+    scanStreams[slot] = stream;
+    const vid = document.getElementById('photoVideo' + slot);
+    vid.srcObject = stream; vid.style.display = 'block';
+    document.getElementById('camCapture' + slot).style.display = 'block';
+    document.getElementById('camGallery' + slot).style.display = 'block';
+    document.getElementById('photoPlaceholder' + slot).style.display = 'none';
+  }).catch(() => document.getElementById('photoFile' + slot).click());
 }
 
 function scanCapture(slot) {
@@ -346,6 +396,7 @@ function scanStopCamera(slot) {
   const vid = document.getElementById('photoVideo' + slot);
   if (vid) { vid.srcObject = null; vid.style.display = 'none'; }
   document.getElementById('camCapture' + slot).style.display = 'none';
+  document.getElementById('camGallery' + slot).style.display = 'none';
   document.getElementById('photoPlaceholder' + slot).style.display = 'flex';
 }
 
@@ -363,9 +414,11 @@ function setScanPhoto(slot, dataUrl) {
   const preview = document.getElementById('photoPreview' + slot);
   const placeholder = document.getElementById('photoPlaceholder' + slot);
   const clearBtn = document.getElementById('photoClear' + slot);
+  const zone = document.getElementById('photoZone' + slot);
   if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
   if (placeholder) placeholder.style.display = 'none';
   if (clearBtn) clearBtn.style.display = 'block';
+  if (zone) zone.classList.add('has-photo');
 }
 
 function scanClearPhoto(slot) {
@@ -373,13 +426,29 @@ function scanClearPhoto(slot) {
   const preview = document.getElementById('photoPreview' + slot);
   const placeholder = document.getElementById('photoPlaceholder' + slot);
   const clearBtn = document.getElementById('photoClear' + slot);
+  const zone = document.getElementById('photoZone' + slot);
   if (preview) { preview.src = ''; preview.style.display = 'none'; }
   if (placeholder) placeholder.style.display = 'flex';
   if (clearBtn) clearBtn.style.display = 'none';
+  if (zone) zone.classList.remove('has-photo');
 }
 
 // ── Scan Pipeline (client-side via Claude API) ──
 const SCAN_STEPS = ['intake', 'vision', 'parts', 'pricing', 'decision'];
+const KEOKI_MSGS = {
+  intake:   '<strong>Keoki</strong> on it 🔍<br>Prepping your vehicle profile…',
+  vision:   '<strong>Keoki</strong> scanning 👁️<br>Claude Vision is reading the damage…',
+  parts:    '<strong>Keoki</strong> parts check 🔩<br>Mapping damage to repair line items…',
+  pricing:  '<strong>Keoki</strong> crunching 💰<br>Hawaii rate estimate: $110–150/hr…',
+  decision: '<strong>Keoki</strong> QA review ✅<br>Confidence scoring + final check…',
+  done:     '<strong>Keoki</strong> done! 🤙<br>Estimate ready — save it as a Job below.',
+  error:    '<strong>Keoki</strong> hit a snag 😅<br>Check your API key or try again.',
+  idle:     '<strong>Keoki</strong> here 🤙<br>Snap 1–2 photos of the damage. I\'ll run the full AI pipeline!',
+};
+function keokiSay(key) {
+  const el = document.getElementById('keokiBubble');
+  if (el) el.innerHTML = KEOKI_MSGS[key] || KEOKI_MSGS.idle;
+}
 function setScanStep(stepId) {
   const idx = SCAN_STEPS.indexOf(stepId);
   SCAN_STEPS.forEach((s, i) => {
@@ -389,6 +458,7 @@ function setScanStep(stepId) {
     if (i < idx) el.classList.add('done');
     else if (i === idx) el.classList.add('active');
   });
+  keokiSay(stepId);
 }
 
 async function runScanPipeline() {
@@ -478,9 +548,11 @@ async function runScanPipeline() {
 
     renderScanResults(currentScanResult);
     document.getElementById('scanResults').classList.add('visible');
+    keokiSay('done');
 
   } catch(e) {
     showError('scanError', e.status === 401 ? 'Invalid API key.' : `Scan failed: ${e.message}`);
+    keokiSay('error');
   } finally {
     btn.disabled = false; btn.textContent = '🔍 Analyze Damage';
   }
