@@ -576,6 +576,8 @@ function renderScanResults(result) {
   const p = result.pricing || {};
   const d = result.decision || {};
   const fmt = n => '$' + Number(n || 0).toLocaleString();
+  const photoQuality = v.photo_quality || 'unknown';
+  const reviewNeeded = d.human_review_flag || photoQuality === 'poor' || Number(d.confidence_score || 0) < 70;
 
   document.getElementById('scanResultTitle').textContent = v.primary_part || 'Damage Assessment';
   const sevEl = document.getElementById('scanSeverity');
@@ -586,7 +588,20 @@ function renderScanResults(result) {
   document.getElementById('scanCostParts').textContent = p.parts ? `${fmt(p.parts.low)}–${fmt(p.parts.high)}` : '—';
   document.getElementById('scanCostLabor').textContent = p.labor ? `${fmt(p.labor.low)}–${fmt(p.labor.high)}` : '—';
   document.getElementById('scanCostTotal').textContent = p.total ? `${fmt(p.total.low)}–${fmt(p.total.high)}` : '—';
-  document.getElementById('scanConfidence').textContent = d.confidence_score ? `Confidence: ${d.confidence_score}/100${d.human_review_flag ? ' — Human Review Recommended' : ''}` : '';
+  document.getElementById('scanConfidence').textContent = d.confidence_score ? `Confidence: ${d.confidence_score}/100${reviewNeeded ? ' — Human Review Recommended' : ' — Ready for customer review'}` : '';
+  document.getElementById('scanPhotoQuality').textContent = photoQuality;
+  document.getElementById('scanReviewGate').textContent = reviewNeeded ? 'Review' : 'Pass';
+  document.getElementById('scanSeverityMirror').textContent = v.severity || '-';
+
+  const timeline = document.getElementById('scanAgentTimeline');
+  if (timeline) {
+    timeline.innerHTML = [
+      ['Vision Agent', `${v.primary_part || 'part'} / ${photoQuality} photos`],
+      ['Parts Agent', `${(result.parts_map || []).length} line item${(result.parts_map || []).length === 1 ? '' : 's'}`],
+      ['Pricing Agent', p.total ? `${fmt(p.total.low)} to ${fmt(p.total.high)}` : 'cost band pending'],
+      ['Decision Agent', reviewNeeded ? 'human review gate raised' : 'QA gate passed'],
+    ].map(([name, value]) => `<div class="agent-row"><strong>${esc(name)}</strong><span>${esc(value)}</span></div>`).join('');
+  }
 
   const partsWrap = document.getElementById('scanPartsListWrap');
   const parts = result.parts_map || [];
@@ -596,6 +611,18 @@ function renderScanResults(result) {
       <span style="color:var(--accent);font-weight:700;font-size:0.78rem">${esc(pt.repair_action)}</span>
     </div>`).join('');
 }
+
+document.addEventListener('sw-avatar:skill', (event) => {
+  const skill = (event.detail?.skill || '').toLowerCase();
+  if (skill.includes('estimate') || skill.includes('pricing')) {
+    openTab('estimate');
+    document.getElementById('estJobDesc')?.focus();
+  } else if (skill.includes('scan') || skill.includes('triage') || skill.includes('parts')) {
+    openTab('scan');
+  } else if (skill.includes('job') || skill.includes('workflow')) {
+    openTab('jobs');
+  }
+});
 
 function saveScanAsJob() {
   if (!currentScanResult) return;

@@ -241,6 +241,43 @@
     }
     .ai-indicator { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 0.4rem; }
 
+    .pro-cockpit {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.65rem; margin-bottom: 1rem;
+    }
+    .cockpit-tile {
+      min-height: 92px; padding: 0.82rem; border-radius: 10px;
+      background: linear-gradient(160deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .cockpit-kicker {
+      font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 0.28rem;
+    }
+    .cockpit-value { font-size: 0.95rem; font-weight: 900; color: var(--text); line-height: 1.2; }
+    .cockpit-copy { font-size: 0.72rem; color: var(--muted); margin-top: 0.28rem; line-height: 1.35; }
+    .qa-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin: 0.95rem 0;
+    }
+    .qa-card {
+      padding: 0.72rem; border-radius: 9px; border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(12,13,20,0.5);
+    }
+    .qa-value { font-size: 1rem; font-weight: 900; color: var(--text); margin-top: 0.2rem; }
+    .agent-timeline { display: grid; gap: 0.45rem; margin: 0.9rem 0; }
+    .agent-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: 0.52rem 0.65rem; border-radius: 8px; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem;
+    }
+    .agent-row strong { color: var(--text); }
+    .agent-row span { color: var(--muted); text-align: right; }
+    @media (max-width: 620px) {
+      .pro-cockpit, .qa-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 420px) {
+      .pro-cockpit, .qa-grid { grid-template-columns: 1fr; }
+    }
+
     /* ── Scan Photo Zones ── */
     .photo-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
     .photo-zone {
@@ -438,6 +475,29 @@
       <p class="section-label">My Garage</p>
       <h2 class="panel-title">Vehicles &amp; Maintenance</h2>
 
+      <section class="pro-cockpit" aria-label="AutoRepairIQ capabilities">
+        <article class="cockpit-tile">
+          <p class="cockpit-kicker">Agent stack</p>
+          <div class="cockpit-value">4-step scan QA</div>
+          <p class="cockpit-copy">Vision, parts, pricing, and final review stay visible.</p>
+        </article>
+        <article class="cockpit-tile">
+          <p class="cockpit-kicker">Trust gate</p>
+          <div class="cockpit-value">Photo quality</div>
+          <p class="cockpit-copy">Flags weak inputs before a customer-facing estimate.</p>
+        </article>
+        <article class="cockpit-tile">
+          <p class="cockpit-kicker">Workflow</p>
+          <div class="cockpit-value">Scan to job</div>
+          <p class="cockpit-copy">Convert a result into job tracking with one action.</p>
+        </article>
+        <article class="cockpit-tile">
+          <p class="cockpit-kicker">Output</p>
+          <div class="cockpit-value">Share-ready</div>
+          <p class="cockpit-copy">Export a clear customer report with cost bands.</p>
+        </article>
+      </section>
+
       <div class="card" id="addVehicleCard">
         <h3>Add Vehicle</h3>
         <div class="form-grid three">
@@ -631,6 +691,21 @@
             </div>
           </div>
           <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.8rem" id="scanConfidence"></div>
+          <div class="qa-grid" aria-label="Estimate quality gate">
+            <article class="qa-card">
+              <p class="cockpit-kicker">Photo quality</p>
+              <div class="qa-value" id="scanPhotoQuality">-</div>
+            </article>
+            <article class="qa-card">
+              <p class="cockpit-kicker">Review gate</p>
+              <div class="qa-value" id="scanReviewGate">-</div>
+            </article>
+            <article class="qa-card">
+              <p class="cockpit-kicker">Severity</p>
+              <div class="qa-value" id="scanSeverityMirror">-</div>
+            </article>
+          </div>
+          <div class="agent-timeline" id="scanAgentTimeline" aria-label="Agent timeline"></div>
           <div id="scanPartsListWrap"></div>
           <div class="btn-row">
             <button class="btn-secondary" onclick="saveScanAsJob()">💾 Save as Job</button>

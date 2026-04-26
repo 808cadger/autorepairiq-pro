@@ -15,6 +15,7 @@ from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.config import settings
@@ -119,11 +120,31 @@ async def root():
 @app.get("/health")
 async def health(db: Session = Depends(get_db)):
     try:
-        db.execute(db.bind.dialect.compiler(db.bind.dialect, None).__class__.__module__ and __import__("sqlalchemy").text("SELECT 1"))
+        db.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception:
         db_status = "error"
     return {"status": "ok", "version": "1.0.0", "db": db_status}
+
+
+@app.get("/capabilities")
+async def capabilities():
+    return {
+        "app": "AutoRepairIQ Pro",
+        "positioning": "AI repair cockpit for photo triage, estimate review, shop workflow, and finance.",
+        "agents": [
+            {"name": "Vision Agent", "skill": "damage detection", "output": "part, severity, photo quality"},
+            {"name": "Parts Agent", "skill": "repair mapping", "output": "line items and part sourcing"},
+            {"name": "Pricing Agent", "skill": "Hawaii labor estimate", "output": "low, mid, high cost bands"},
+            {"name": "Decision Agent", "skill": "QA gate", "output": "confidence, review flag, disclaimer"},
+        ],
+        "trust_controls": [
+            "confidence score",
+            "human review flag",
+            "photo quality gate",
+            "exportable customer report",
+        ],
+    }
 
 
 # ── Vehicles ─────────────────────────────────────────────────
