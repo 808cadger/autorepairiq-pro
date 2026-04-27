@@ -9,6 +9,10 @@ let currentEstimate = null;
 let scanPhotos = [null, null];
 let scanStreams = [null, null];
 let currentScanResult = null;
+let scanPhotoFrames = [
+  { fit: 'cover', offset: { x: 0, y: 0 } },
+  { fit: 'cover', offset: { x: 0, y: 0 } },
+];
 
 // ═══════════════════════════════════════
 //  VEHICLE DATA (make → model lookup)
@@ -117,6 +121,7 @@ const repairs = {
   populateYearDropdowns();
   wireModelDropdowns();
   wireCategoryDropdown();
+  bindPhotoFraming();
   renderGarage();
   renderJobs();
   renderExpenses();
@@ -312,7 +317,7 @@ function scanFromGarage(vIdx) {
 // ═══════════════════════════════════════
 // #ASSUMPTION: @capacitor/camera is available when running in Capacitor wrapper
 async function scanTapPhoto(slot) {
-  if (scanPhotos[slot]) { scanClearPhoto(slot); return; }
+  if (scanPhotos[slot]) return;
   await _openNativeCamera(slot);
 }
 
@@ -411,26 +416,107 @@ function scanFileChange(event, slot) {
 
 function setScanPhoto(slot, dataUrl) {
   scanPhotos[slot] = dataUrl;
+  scanPhotoFrames[slot] = { fit: 'cover', offset: { x: 0, y: 0 } };
   const preview = document.getElementById('photoPreview' + slot);
   const placeholder = document.getElementById('photoPlaceholder' + slot);
   const clearBtn = document.getElementById('photoClear' + slot);
   const zone = document.getElementById('photoZone' + slot);
+  const tools = document.getElementById('photoTools' + slot);
   if (preview) { preview.src = dataUrl; preview.style.display = 'block'; }
   if (placeholder) placeholder.style.display = 'none';
   if (clearBtn) clearBtn.style.display = 'block';
   if (zone) zone.classList.add('has-photo');
+  if (tools) tools.style.display = 'flex';
+  updatePhotoFrame(slot);
 }
 
 function scanClearPhoto(slot) {
   scanPhotos[slot] = null;
+  scanPhotoFrames[slot] = { fit: 'cover', offset: { x: 0, y: 0 } };
   const preview = document.getElementById('photoPreview' + slot);
   const placeholder = document.getElementById('photoPlaceholder' + slot);
   const clearBtn = document.getElementById('photoClear' + slot);
   const zone = document.getElementById('photoZone' + slot);
+  const tools = document.getElementById('photoTools' + slot);
   if (preview) { preview.src = ''; preview.style.display = 'none'; }
   if (placeholder) placeholder.style.display = 'flex';
   if (clearBtn) clearBtn.style.display = 'none';
   if (zone) zone.classList.remove('has-photo');
+  if (tools) tools.style.display = 'none';
+  updatePhotoFrame(slot);
+}
+
+function bindPhotoFraming() {
+  [0, 1].forEach(slot => {
+    const zone = document.getElementById('photoZone' + slot);
+    if (!zone) return;
+
+    let drag = null;
+    const startDrag = (event) => {
+      if (!scanPhotos[slot]) return;
+      if (event.target.closest('button')) return;
+      event.preventDefault();
+      zone.setPointerCapture?.(event.pointerId);
+      zone.classList.add('is-framing');
+      const frame = scanPhotoFrames[slot];
+      drag = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: frame.offset.x,
+        originY: frame.offset.y,
+      };
+    };
+
+    const moveDrag = (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const rect = zone.getBoundingClientRect();
+      const limitX = rect.width * 0.16;
+      const limitY = rect.height * 0.16;
+      scanPhotoFrames[slot].offset = {
+        x: Math.max(-limitX, Math.min(limitX, drag.originX + event.clientX - drag.startX)),
+        y: Math.max(-limitY, Math.min(limitY, drag.originY + event.clientY - drag.startY)),
+      };
+      updatePhotoFrame(slot);
+    };
+
+    const endDrag = (event) => {
+      if (!drag || drag.id !== event.pointerId) return;
+      zone.releasePointerCapture?.(event.pointerId);
+      zone.classList.remove('is-framing');
+      drag = null;
+    };
+
+    zone.addEventListener('pointerdown', startDrag);
+    zone.addEventListener('pointermove', moveDrag);
+    zone.addEventListener('pointerup', endDrag);
+    zone.addEventListener('pointercancel', endDrag);
+  });
+}
+
+function updatePhotoFrame(slot) {
+  const zone = document.getElementById('photoZone' + slot);
+  const fitLabel = document.getElementById('photoFitLabel' + slot);
+  const frame = scanPhotoFrames[slot] || { fit: 'cover', offset: { x: 0, y: 0 } };
+  if (zone) {
+    zone.style.setProperty('--photo-fit', frame.fit);
+    zone.style.setProperty('--photo-x', `${frame.offset.x}px`);
+    zone.style.setProperty('--photo-y', `${frame.offset.y}px`);
+  }
+  if (fitLabel) fitLabel.textContent = frame.fit === 'cover' ? 'Fill' : 'Fit';
+}
+
+function togglePhotoFit(slot) {
+  if (!scanPhotos[slot]) return;
+  scanPhotoFrames[slot].fit = scanPhotoFrames[slot].fit === 'cover' ? 'contain' : 'cover';
+  scanPhotoFrames[slot].offset = { x: 0, y: 0 };
+  updatePhotoFrame(slot);
+}
+
+function resetPhotoFraming(slot) {
+  if (!scanPhotos[slot]) return;
+  scanPhotoFrames[slot].offset = { x: 0, y: 0 };
+  updatePhotoFrame(slot);
 }
 
 // ── Scan Pipeline (client-side via Claude API) ──

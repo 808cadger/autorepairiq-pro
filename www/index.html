@@ -281,6 +281,9 @@
     /* ── Scan Photo Zones ── */
     .photo-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
     .photo-zone {
+      --photo-fit: cover;
+      --photo-x: 0px;
+      --photo-y: 0px;
       aspect-ratio: 4/3;
       background: linear-gradient(145deg, rgba(249,115,22,0.06), rgba(26,29,43,0.95));
       border: 2px dashed rgba(249,115,22,0.25);
@@ -294,8 +297,22 @@
       50%  { border-color: rgba(249,115,22,0.5); box-shadow: 0 0 18px rgba(249,115,22,0.12); }
     }
     .photo-zone:hover { border-color: #f97316; box-shadow: 0 0 22px rgba(249,115,22,0.22); animation: none; }
-    .photo-zone.has-photo { animation: none; border-style: solid; border-color: #4ade80; box-shadow: 0 0 14px rgba(74,222,128,0.15); }
-    .photo-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .photo-zone.has-photo { animation: none; border-style: solid; border-color: #4ade80; box-shadow: 0 0 14px rgba(74,222,128,0.15); cursor: grab; touch-action: none; }
+    .photo-zone.has-photo.is-framing { cursor: grabbing; }
+    .photo-zone.has-photo::after {
+      content: 'Drag to frame damage';
+      position: absolute; left: 8px; top: 8px; z-index: 2;
+      padding: 0.24rem 0.5rem; border-radius: 999px;
+      background: rgba(12,13,20,0.72); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(238,240,248,0.84); font-size: 0.66rem; font-weight: 800;
+      letter-spacing: 0.02em; pointer-events: none;
+    }
+    .photo-zone img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: var(--photo-fit); transform: translate(var(--photo-x), var(--photo-y));
+      transition: transform 0.08s linear, object-fit 0.15s ease;
+      background: #070910;
+    }
     .photo-zone video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
     .photo-zone .placeholder { color: var(--muted); font-size: 0.82rem; text-align: center; }
     .photo-zone .placeholder .icon { font-size: 1.8rem; margin-bottom: 0.3rem; }
@@ -315,6 +332,36 @@
       padding: 0.4rem 0.8rem; background: rgba(30,33,55,0.9); color: var(--text);
       border: 1px solid var(--border); border-radius: 20px; font-weight: 700; font-size: 0.75rem;
       cursor: pointer; display: none; z-index: 2; white-space: nowrap;
+    }
+    .photo-tools {
+      position: absolute; right: 8px; bottom: 8px; z-index: 3;
+      display: none; gap: 0.35rem; align-items: center;
+      padding: 0.24rem; border-radius: 999px;
+      background: rgba(12,13,20,0.76); border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(12px);
+    }
+    .photo-tool-btn {
+      min-width: 44px; height: 28px; padding: 0 0.55rem; border-radius: 999px;
+      border: 1px solid rgba(249,115,22,0.3);
+      background: rgba(249,115,22,0.12); color: #fb923c;
+      font-size: 0.68rem; font-weight: 900; cursor: pointer;
+    }
+    .photo-tool-btn.alt {
+      border-color: rgba(148,163,184,0.26); background: rgba(15,23,42,0.62); color: var(--text);
+    }
+    .scan-upgrade-strip {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin: 1rem 0;
+    }
+    .scan-upgrade-card {
+      padding: 0.78rem; border-radius: 10px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .scan-upgrade-card strong { display: block; font-size: 0.82rem; margin-bottom: 0.2rem; }
+    .scan-upgrade-card span { display: block; color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
+    @media (max-width: 640px) {
+      .scan-upgrade-strip { grid-template-columns: 1fr; }
+      .photo-zone.has-photo::after { content: 'Drag photo'; }
     }
 
     /* ── Scan Pipeline Steps ── */
@@ -612,6 +659,21 @@
         <div class="pipe-step" id="step-decision"><div class="step-dot"></div><span>Decision</span></div>
       </div>
 
+      <section class="scan-upgrade-strip" aria-label="Damage scan workflow upgrades">
+        <article class="scan-upgrade-card">
+          <strong>Frame the damage</strong>
+          <span>Drag each uploaded photo so the damaged panel stays centered for review.</span>
+        </article>
+        <article class="scan-upgrade-card">
+          <strong>Fit or fill</strong>
+          <span>Switch between full-image context and tight damage framing before analysis.</span>
+        </article>
+        <article class="scan-upgrade-card">
+          <strong>Customer-ready</strong>
+          <span>QA gate, agent timeline, export, and share actions stay together.</span>
+        </article>
+      </section>
+
       <div class="form-grid three" style="margin-bottom:0.8rem">
         <div class="form-group">
           <label>Year</label>
@@ -643,6 +705,10 @@
           <button class="clear-btn" id="photoClear0" onclick="event.stopPropagation();scanClearPhoto(0)">✕</button>
           <button class="cam-btn" id="camCapture0" onclick="event.stopPropagation();scanCapture(0)">📸 Capture</button>
           <button class="cam-btn-alt" id="camGallery0" onclick="event.stopPropagation();document.getElementById('photoFile0').click()">📁 Photo</button>
+          <div class="photo-tools" id="photoTools0">
+            <button class="photo-tool-btn" type="button" onclick="event.stopPropagation();togglePhotoFit(0)" id="photoFitLabel0">Fill</button>
+            <button class="photo-tool-btn alt" type="button" onclick="event.stopPropagation();resetPhotoFraming(0)">Center</button>
+          </div>
           <canvas id="photoCanvas0" style="display:none"></canvas>
           <input type="file" id="photoFile0" accept="image/*" style="display:none" onchange="scanFileChange(event,0)">
         </div>
@@ -661,6 +727,10 @@
           <button class="clear-btn" id="photoClear1" onclick="event.stopPropagation();scanClearPhoto(1)">✕</button>
           <button class="cam-btn" id="camCapture1" onclick="event.stopPropagation();scanCapture(1)">📸 Capture</button>
           <button class="cam-btn-alt" id="camGallery1" onclick="event.stopPropagation();document.getElementById('photoFile1').click()">📁 Photo</button>
+          <div class="photo-tools" id="photoTools1">
+            <button class="photo-tool-btn" type="button" onclick="event.stopPropagation();togglePhotoFit(1)" id="photoFitLabel1">Fill</button>
+            <button class="photo-tool-btn alt" type="button" onclick="event.stopPropagation();resetPhotoFraming(1)">Center</button>
+          </div>
           <canvas id="photoCanvas1" style="display:none"></canvas>
           <input type="file" id="photoFile1" accept="image/*" style="display:none" onchange="scanFileChange(event,1)">
         </div>
